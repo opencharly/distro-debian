@@ -1,0 +1,20 @@
+debian:
+    candy:
+        # Bare distro base on debian:13 (layerless) — carries a dedicated version:
+        # for content-stable identity (cache stability), per the per-kind versioning.
+        version: 2026.144.1443
+        base: debian:13
+        build:
+            - deb
+        builder:
+            cargo: debian-builder
+            npm: debian-builder
+            pixi: debian-builder
+        produce:
+            - pixi
+            - npm
+            - cargo
+    debian-distro:
+        distro:
+            - debian:13
+            - debian
