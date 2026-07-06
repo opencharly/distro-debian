@@ -14,7 +14,6 @@ debian:
             - pixi
             - npm
             - cargo
-    debian-distro:
         distro:
             - debian:13
             - debian

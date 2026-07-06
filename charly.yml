@@ -17,7 +17,7 @@
 #  Directly buildable: `charly box build debian` (the build verb defaults to this
 #  charly.yml). From the parent repo: `charly -C box/debian box build
 #  debian`, or anywhere: `charly --repo opencharly/distro-debian box build debian`.
-version: 2026.174.1100
+version: 2026.186.2323
 defaults:
     platform:
         - linux/amd64
@@ -38,8 +38,7 @@ check-debian-debootstrap-vm:
         from: debian-debootstrap
         disposable: true
         lifecycle: dev
-        description: Sole proof the charly toolchain installs as the opencharly .deb via localpkg on a from-scratch debootstrap Debian 13 VM, with apt auto-resolving the mandatory deps and the tailscale apt-repo distro-cascade deterministically picking debian/trixie. Boots a debootstrap Debian 13 rootfs as a libvirt/QEMU VM (uefi-insecure, ssh port 12227), overlays the charly candy as a .deb localpkg, then runs two guest command checks — dpkg -s opencharly/podman/libvirt-daemon-system/tailscale plus charly version (asserting LOCALPKG-DEB-AUTORESOLVE-OK), and a grep asserting tailscale.list resolved to 'debian trixie'.
-    check-debian-debootstrap-vm-add_candy:
+        description: Sole proof the charly toolchain installs as the opencharly .deb via localpkg on a from-scratch debootstrap Debian 13 VM, with apt auto-resolving the mandatory deps and the tailscale apt-repo distro-cascade deterministically picking debian/trixie. Boots a debootstrap Debian 13 rootfs as a libvirt/QEMU VM (uefi-insecure, an auto-allocated ssh port), overlays the charly candy as a .deb localpkg, then runs two guest command checks — dpkg -s opencharly/podman/libvirt-daemon-system/tailscale plus charly version (asserting LOCALPKG-DEB-AUTORESOLVE-OK), and a grep asserting tailscale.list resolved to 'debian trixie'.
         # deb localpkg AUTO-RESOLVE witness: charly installed as the `opencharly` .deb
         # via localpkg (dpkg-buildpackage in a debian container + apt-get install),
         # mandatory deps auto-resolved by apt from Debian main. tailscale is NOT in
@@ -47,30 +46,27 @@ check-debian-debootstrap-vm:
         # apt repo, so it must ALSO be present after deploy.
         add_candy:
             - '@github.com/opencharly/charly/candy/charly:v2026.183.1359'
-    check-debian-debootstrap-vm-install_opts:
         install_opts:
             allow_repo_changes: true
             allow_root_tasks: true
             skip_incompatible: true # skip composed layers lacking a guest-format section; the localpkg .deb/.rpm Depends/Requires install the packages
-    localpkg-deb-autoresolve:
-        check: |
-            command=dpkg -s opencharly >/dev/null 2>&1 &&
-            dpkg -s podman >/dev/null 2>&1 &&
-            dpkg -s libvirt-daemon-system >/dev/null 2>&1 &&
-            dpkg -s tailscale >/dev/null 2>&1 &&
-            command -v charly >/dev/null 2>&1 &&
-            charly version &&
-            echo LOCALPKG-DEB-AUTORESOLVE-OK
-        id: localpkg-deb-autoresolve
-        description: charly installed as the opencharly .deb via localpkg, mandatory deps auto-resolved by apt; tailscale supplied by the charly layer
-        stdout:
-            - contains: LOCALPKG-DEB-AUTORESOLVE-OK
-        exit_status: 0
-        context:
-            - runtime
-        plugin: command
-        plugin_input:
-            command: |
+        plan:
+            - check: |
+                command=dpkg -s opencharly >/dev/null 2>&1 &&
+                dpkg -s podman >/dev/null 2>&1 &&
+                dpkg -s libvirt-daemon-system >/dev/null 2>&1 &&
+                dpkg -s tailscale >/dev/null 2>&1 &&
+                command -v charly >/dev/null 2>&1 &&
+                charly version &&
+                echo LOCALPKG-DEB-AUTORESOLVE-OK
+              id: localpkg-deb-autoresolve
+              description: charly installed as the opencharly .deb via localpkg, mandatory deps auto-resolved by apt; tailscale supplied by the charly layer
+              stdout:
+                - contains: LOCALPKG-DEB-AUTORESOLVE-OK
+              exit_status: 0
+              context:
+                - runtime
+              command: |
                 dpkg -s opencharly >/dev/null 2>&1 &&
                 dpkg -s podman >/dev/null 2>&1 &&
                 dpkg -s libvirt-daemon-system >/dev/null 2>&1 &&
@@ -78,18 +74,15 @@ check-debian-debootstrap-vm:
                 command -v charly >/dev/null 2>&1 &&
                 charly version &&
                 echo LOCALPKG-DEB-AUTORESOLVE-OK
-    welded-command-project-less:
-        check: the welded command plugins are baked beside charly at /usr/lib/charly/plugins so a core welded command dispatches project-less on the opencharly .deb install
-        id: welded-command-project-less
-        description: the opencharly .deb bakes the command:<word> plugins (doctor/vm/clean/…) beside the binary at /usr/lib/charly/plugins, so `charly doctor` dispatches project-less on the installed package (FAILS on the pre-fix .deb that shipped only the binary)
-        stdout:
-            - contains: WELDED-CMD-PROJECT-LESS-OK
-        exit_status: 0
-        context:
-            - runtime
-        plugin: command
-        plugin_input:
-            command: |
+            - check: the welded command plugins are baked beside charly at /usr/lib/charly/plugins so a core welded command dispatches project-less on the opencharly .deb install
+              id: welded-command-project-less
+              description: the opencharly .deb bakes the command:<word> plugins (doctor/vm/clean/…) beside the binary at /usr/lib/charly/plugins, so `charly doctor` dispatches project-less on the installed package (FAILS on the pre-fix .deb that shipped only the binary)
+              stdout:
+                - contains: WELDED-CMD-PROJECT-LESS-OK
+              exit_status: 0
+              context:
+                - runtime
+              command: |
                 test -x /usr/lib/charly/plugins/plugin-doctor &&
                 test -f /usr/lib/charly/plugins/plugin-doctor.providers &&
                 test -x /usr/lib/charly/plugins/plugin-vm &&
@@ -97,16 +90,13 @@ check-debian-debootstrap-vm:
                 cd /tmp &&
                 charly doctor 2>/dev/null | grep -q 'Container Engine' &&
                 echo WELDED-CMD-PROJECT-LESS-OK
-    tailscale-repo-suite-debian-trixie:
-        check: command=grep -h 'pkgs[.]tailscale[.]com/stable/debian trixie' /etc/apt/sources.list.d/tailscale.list
-        id: tailscale-repo-suite-debian-trixie
-        description: distro-cascade resolves the debian/trixie tailscale apt repo (not ubuntu/noble) deterministically
-        exit_status: 0
-        context:
-            - runtime
-        plugin: command
-        plugin_input:
-            command: grep -h 'pkgs[.]tailscale[.]com/stable/debian trixie' /etc/apt/sources.list.d/tailscale.list
+            - check: command=grep -h 'pkgs[.]tailscale[.]com/stable/debian trixie' /etc/apt/sources.list.d/tailscale.list
+              id: tailscale-repo-suite-debian-trixie
+              description: distro-cascade resolves the debian/trixie tailscale apt repo (not ubuntu/noble) deterministically
+              exit_status: 0
+              context:
+                - runtime
+              command: grep -h 'pkgs[.]tailscale[.]com/stable/debian trixie' /etc/apt/sources.list.d/tailscale.list
 # Disposable R10 pod bed for the debian-coder developer image — closes the
 # pod×debian cross-cell the submodule previously lacked (it shipped only the
 # debootstrap VM bed above), mirroring box/fedora's check-fedora-coder-pod on
@@ -119,34 +109,29 @@ check-debian-coder-pod:
         disposable: true
         lifecycle: dev
         description: R10 bed for the debian-coder image — proves the Debian developer pod (sshd + language runtimes + AI CLIs on the Debian 13 base) builds and runs as one composed pod. Builds box:debian-coder, deploys it, and runs the composed candies' baked file/package/service/command/addr checks plus the bed's own sshd-service, language-runtime-binary, and charly status --json (status-shows-pod) probes.
-    sshd-service-running:
-        check: the supervised sshd service is running in the composed developer pod
-        id: sshd-service-running
-        context:
-            - runtime
-        plugin: service
-        plugin_input:
-            service: sshd
-            running: true
-    golang-binary-present:
-        check: the Go language-runtime binary is baked into the developer pod
-        id: golang-binary-present
-        plugin: file
-        plugin_input:
-            file: /usr/bin/go
-            exists: true
-    status-shows-pod:
-        check: command=charly status --json
-        id: status-shows-pod
-        stdout:
-            - contains: '"kind": "pod"'
-            - contains: check-debian-coder-pod
-        context:
-            - runtime
-        plugin: command
-        plugin_input:
-            command: charly status --json
-            in_container: false
+        plan:
+            - check: the supervised sshd service is running in the composed developer pod
+              id: sshd-service-running
+              context:
+                - runtime
+              service:
+                service: sshd
+                running: true
+            - check: the Go language-runtime binary is baked into the developer pod
+              id: golang-binary-present
+              file:
+                file: /usr/bin/go
+                exists: true
+            - check: command=charly status --json
+              id: status-shows-pod
+              stdout:
+                - contains: '"kind": "pod"'
+                - contains: check-debian-coder-pod
+              context:
+                - runtime
+              command:
+                command: charly status --json
+                in_container: false
 debian-debootstrap:
     vm:
         #  `source.kind: bootstrap` builds a Debian rootfs from scratch via
@@ -174,7 +159,7 @@ debian-debootstrap:
             mode: user
         ssh:
             user: debian
-            port: 12227
+            port_auto: true
             key_source: generate
         cloud_init:
             users:

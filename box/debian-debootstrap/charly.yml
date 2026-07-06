@@ -9,7 +9,6 @@ debian-debootstrap:
         bootstrap_builder_image: debian-debootstrap-builder
         build:
             - deb
-    debian-debootstrap-distro:
         distro:
             - debian:13
             - debian
