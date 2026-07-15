@@ -11,7 +11,7 @@ binary (`charly/charly.yml`).
 - `/charly-distros:debian-builder` — the builder image.
 - `/charly-distros:debian-debootstrap`, `/charly-distros:debian-debootstrap-builder` —
   the bootstrap path.
-- `/charly-coder:debian-coder` — the dev image; `/charly-vm:debian` — the bootstrap VM.
+- `/charly-coder:debian-coder` — the dev image; `/charly-vm:debian-debootstrap-vm` — the bootstrap VM.
 
 **Authoritative rules live in the `opencharly` superproject's root `CLAUDE.md`**
 (R0–R10, hard-cutover, AI attribution, git-workflow). This file only signposts
