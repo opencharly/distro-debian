@@ -45,7 +45,7 @@ check-debian-debootstrap-vm:
         # the .deb (not in Debian main) — the charly candy supplies it via the tailscale
         # apt repo, so it must ALSO be present after deploy.
         add_candy:
-            - '@github.com/opencharly/charly/candy/charly:v2026.183.1359'
+            - '@github.com/opencharly/charly/candy/charly:v2026.201.0706'
         install_opts:
             allow_repo_changes: true
             allow_root_tasks: true
