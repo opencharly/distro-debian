@@ -17,7 +17,7 @@
 #  Directly buildable: `charly box build debian` (the build verb defaults to this
 #  charly.yml). From the parent repo: `charly -C box/debian box build
 #  debian`, or anywhere: `charly --repo opencharly/distro-debian box build debian`.
-version: 2026.202.0105
+version: 2026.204.1223
 defaults:
     platform:
         - linux/amd64
