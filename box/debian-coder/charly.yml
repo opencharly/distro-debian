@@ -1,4 +1,5 @@
 debian-coder:
+# Phase-4 distro sweep: candy pins advanced to the standalone repos (see PR #17 body for the real R10 proof)
     candy:
         base: debian
         candy:
@@ -39,3 +40,4 @@ debian-coder:
         # (claude-code/codex/gemini/forgecode, golang/nodejs/rust,
         # kubernetes/docker-ce/devops-tools/google-cloud, sshd, charly-mcp, charly),
         # so ONE candy check covers every coder box composing them.
+# distro-debian Phase-4 sweep: see the PR body for the real R10 proof
