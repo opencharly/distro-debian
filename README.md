@@ -18,15 +18,15 @@ This repo contains **no candies of its own** and carries no build-config file.
 Everything is pulled from `github.com/opencharly/charly` by **github reference**,
 and the shared build vocabulary is embedded in the `charly` binary:
 
-- every candy in `charly.yml` is an `@github.com/opencharly/charly/candy/<name>:<tag>` ref;
+- every candy in `charly.yml` is an `@github.com/opencharly/<layer-*|pod-*|plugin-*>[:subdir]:<tag>` ref;
 - the distro/builder/init build vocabulary (the `debian` distro definition, the
   `deb` format template, and the `debootstrap` builder template) is **embedded in
   the `charly` binary** (`charly/charly.yml`) — `import:` is empty (`import: []`).
 
 The Debian bases root at the upstream docker.io `debian:13` image directly, so
 this repo needs **no namespace import** (unlike `opencharly/distro-cachyos`, which
-imports `opencharly/distro-arch` under the `arch` namespace). All references pin to a
-single tag of the upstream repo, so a build is reproducible. There is exactly one
+imports `opencharly/distro-arch` under the `arch` namespace). All references pin to
+explicit CalVer tags, so a build is reproducible. There is exactly one
 definition of every candy — no duplication.
 
 ## No coupling with main
@@ -60,15 +60,15 @@ The first build resolves the upstream github references into
 `debian-debootstrap` builds a Debian rootfs from scratch via `debootstrap`
 inside the privileged `debian-debootstrap-builder` container (`from:
 builder:debootstrap`). `check-debian-debootstrap-vm` boots that rootfs under
-libvirt/QEMU and carries `disposable: true`, so `charly -C box/debian update
+libvirt/QEMU and carries `disposable: true`, so `charly -C box/debian check run
 check-debian-debootstrap-vm` rebuilds it unattended.
 
 ## Requirements
 
 A build of any image here fetches from the upstream repo, so it needs network
 access and a `charly` recent enough to understand the config's schema version
-(`charly` hard-fails with an "update charly" message if the config is newer than the
-binary supports).
+(`charly` hard-fails with a "newer than this charly supports" message if the config
+schema is newer than the binary supports).
 
 ---
 *Assisted-by: Claude*
