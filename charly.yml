@@ -17,7 +17,7 @@
 #  Directly buildable: `charly box build debian` (the build verb defaults to this
 #  charly.yml). From the parent repo: `charly -C box/debian box build
 #  debian`, or anywhere: `charly --repo opencharly/distro-debian box build debian`.
-version: 2026.240.1943
+version: 2026.249.2125
 defaults:
     platform:
         - linux/amd64
@@ -175,3 +175,530 @@ discover:
       recursive: true
     - path: candy
       recursive: true
+debian-builder-skill:
+    skill:
+        name: debian-builder
+        family: distros
+        owner: debian-builder
+        description: |-
+            Minimal Debian 13 builder image (pixi + Node.js + build-toolchain) used
+            as the multi-stage builder for every box based on Debian — currently
+            debian-coder. Produces the pre-compiled pixi envs, npm globals, and
+            cargo crates that land in the final runtime image via COPY --from.
+            MUST be invoked before building, deploying, configuring, or troubleshooting
+            the debian-builder box.
+        triggers:
+            - "Debian images / `debian*` / `box/debian` submodule"
+        content: |
+            # debian-builder
+            
+            Debian 13 counterpart of `/charly-distros:fedora-builder`. Provides the pixi / npm / cargo build environments so downstream Debian boxes (currently `/charly-coder:debian-coder`) get pre-compiled artifacts from a dedicated builder stage without bloating the final image.
+            
+            Lives in the **`opencharly/distro-debian`** repo (git submodule at **`box/debian`**).
+            Build it from the submodule: `charly -C box/debian box build debian-builder`
+            (normally it builds implicitly as a dependency of `debian-coder`). Its
+            `pixi`/`nodejs`/`build-toolchain` layers are pulled by github reference from the
+            main repo.
+            
+            ## Box Properties
+            
+            | Property | Value |
+            |----------|-------|
+            | Base | `debian` (which = `debian:13` + our bootstrap) |
+            | Layers | `pixi`, `nodejs`, `build-toolchain` |
+            | Platforms | `linux/amd64` |
+            | Registry | `ghcr.io/opencharly` |
+            | User | `user` / uid 1000 (create mode — `debian:13` ships no pre-existing uid-1000 account) |
+            
+            ## Full candy stack
+            
+            1. `/charly-distros:debian` — Debian 13 + our `apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg` bootstrap + go-task binary + `user:user` uid 1000.
+            2. `/charly-languages:pixi` — pixi package manager + env paths.
+            3. `/charly-coder:nodejs` — Node.js + npm (generic `nodejs` — Debian's packaged Node).
+            4. `/charly-coder:build-toolchain` — gcc, g++, cmake, autoconf, ninja, pkg-config, and the full set of `-dev` libraries (Debian equivalents of Fedora's `-devel`). Used by cargo crates that link system libs (libva, x264, ffmpeg, wayland, xkbcommon, etc.).
+            
+            ## Role in the build system
+            
+            Declares `builds: [pixi, npm, cargo]` and is listed as `debian-coder`'s builder for all three types via:
+            
+            ```yaml
+            debian:
+              builder:
+                pixi: debian-builder
+                npm: debian-builder
+                cargo: debian-builder
+            ```
+            
+            During `charly box build debian-coder`, any candy that ships `pixi.toml` / `package.json` / `Cargo.toml` gets a multi-stage `FROM debian-builder AS <layer>-<builder>-build` section emitted by the generator, then `COPY --from=<stage> --chown=${UID}:${GID}` into the final image. See `/charly-internals:generate-source` for the template.
+            
+            No AUR equivalent (unlike `/charly-distros:arch-builder`) — AUR is an Arch-only concept.
+            
+            ## Cross-distro sibling builders
+            
+            - `/charly-distros:fedora-builder` — Fedora 43 equivalent (+ `rpmfusion` for x264/ffmpeg/libva headers).
+            - `/charly-distros:arch-builder` — Arch Linux equivalent + `yay` for AUR.
+            - `/charly-distros:ubuntu-builder` — Ubuntu 24.04 equivalent; differs from this box mainly in `user:ubuntu` vs `user:user` (adopt mode — see `/charly-distros:ubuntu`).
+            
+            ## Quick start
+            
+            ```bash
+            charly -C box/debian box build debian-builder
+            charly shell debian-builder
+            ```
+            
+            Typically not invoked directly — it's a build-time dependency of `/charly-coder:debian-coder`.
+            
+            ## Verification
+            
+            - `charly -C box/debian box list | grep debian-builder` — box present.
+            - `charly shell debian-builder -- pixi --version && node --version && gcc --version`.
+            
+            ## Related boxes
+            
+            - `/charly-distros:debian` — parent base, declares the bootstrap packages in the embedded `distro:` vocabulary.
+            - `/charly-coder:debian-coder` — the consumer that this builder exists to serve.
+            - `/charly-distros:fedora-builder` — RPM-family sibling.
+            - `/charly-distros:arch-builder` — pacman + AUR sibling.
+            - `/charly-distros:ubuntu-builder` — Ubuntu 24.04 sibling.
+            
+            ## Related candies
+            
+            - `/charly-languages:pixi`, `/charly-coder:nodejs`, `/charly-coder:build-toolchain`
+            
+            ## Related commands
+            
+            - `/charly-build:build` — multi-stage builders, `base_user:` declaration
+            - `/charly-image:image` — `produce:` + `builder:` fields
+            - `/charly-build:generate` — COPY-from stage emission
+            
+            ## When to use this skill
+            
+            **MUST be invoked** when:
+            
+            - Building or troubleshooting `debian-builder` itself.
+            - Debugging multi-stage `COPY --from` errors in a `debian-coder` build (the source stage is this image).
+            - Adding a new builder capability (e.g. a `dotnet` build type) to deb-family images.
+
+debian-coder-skill:
+    skill:
+        name: debian-coder
+        family: coder
+        owner: debian-coder
+        description: |-
+            Kitchen-sink development box on Debian 13 trixie: coding + AI-coding
+            CLIs + DevOps tooling in one container. Debian base, a large set of direct candies
+            mirroring fedora-coder's stack but with deb: sections. Runs as uid 1000
+            (`user`) with passwordless sudo. 143/0 tests pass.
+            Use when working with the debian-coder box — or when comparing
+            cross-distro parity across the four coder-family boxes.
+        triggers:
+            - "Debian images / `debian*` / `box/debian` submodule"
+        content: |-
+            # debian-coder
+            
+            Debian 13 trixie counterpart of `/charly-coder:fedora-coder`. Same 80-line `check:` block, same large candy list, same rootless posture (uid 1000 + passwordless sudo). Key wrinkles are all Debian-specific packaging quirks handled inside individual candies: `bat → batcat` symlink, Microsoft's `dotnet-install.sh` cross-distro installer, and package-existence tests (vs binary-path tests) for `virtualization` because Debian bundles libvirt drivers differently.
+            
+            > **Location:** lives in the **`opencharly/distro-debian`** repo (git submodule at
+            > **`box/debian`**), in that repo's config (its `charly.yml` + per-kind
+            > sibling files). Its `debian` base is owned by the same submodule; its
+            > candies are pulled by github reference from the main repo. Build/validate from
+            > the submodule:
+            > `charly -C box/debian box build debian-coder`, or
+            > `charly --repo opencharly/distro-debian box build debian-coder`. Deploy-mode verbs
+            > (`charly config`/`charly start`/`charly check box`) read the built image's OCI labels and
+            > work from anywhere once it's in local storage.
+            
+            ## Definition
+            
+            ```yaml
+            debian-coder:
+              base: debian
+              ports:
+                - "2222:2222"                 # sshd-wrapper
+                - "18765:18765"               # charly-mcp (Streamable HTTP)
+              candy:
+                # Baseline
+                - agent-forwarding
+                - sshd
+                - charly
+                - charly-mcp
+                - container-nesting
+                - '@github.com/opencharly/pod-dbus'
+                - '@github.com/opencharly/layer-tmux'
+            
+                # Language runtimes
+                - language-runtimes           # Go + PHP + .NET 9 (via Microsoft dotnet-install.sh)
+                - '@github.com/opencharly/layer-golang'
+                - '@github.com/opencharly/layer-nodejs'  # Debian's packaged Node
+                - rust
+                - pixi
+                - uv
+            
+                # Build + developer tooling
+                - build-toolchain
+                - dev-tools                   # ripgrep, bat→batcat symlink, fd-find, neovim, …
+                - pre-commit
+                - direnv
+                - gh
+                - typst
+                - asciinema
+            
+                # AI coding CLIs
+                - claude-code
+                - codex
+                - '@github.com/opencharly/layer-gemini'
+                - forgecode
+                - oracle
+            
+                # DevOps / cloud / infra
+                - devops-tools
+                - '@github.com/opencharly/layer-kubernetes'
+                - docker-ce
+                - github-actions
+                - google-cloud
+                - google-cloud-npm
+                - grafana-tools
+            ```
+            
+            ## User model — create mode
+            
+            The `debian:13` upstream base image ships **no** pre-existing uid-1000 account. The embedded `distro.debian` vocabulary declares no `base_user:`, so `user_policy: auto` (the default) falls through to create mode. The bootstrap section of `.build/debian/Containerfile` emits:
+            
+            ```
+            RUN if ! getent passwd 1000 >/dev/null 2>&1; then
+                  LOGIN_SHELL=/bin/sh; [ -x /bin/bash ] && LOGIN_SHELL=/bin/bash;
+                  if command -v useradd >/dev/null 2>&1; then
+                    (getent group 1000 >/dev/null 2>&1 || groupadd -g 1000 user) &&
+                    useradd -m -u 1000 -g 1000 -s "$LOGIN_SHELL" user;
+                  else
+                    (getent group 1000 >/dev/null 2>&1 || addgroup -g 1000 user) &&
+                    adduser -D -h /home/user -u 1000 -G user -s "$LOGIN_SHELL" user;
+                  fi;
+                fi
+            ```
+            
+            Resolved identity: `User=user, UID=1000, GID=1000, Home=/home/user`. Identical to fedora-coder / arch-coder. Contrast with `/charly-coder:ubuntu-coder` which runs adopt mode on `ubuntu:ubuntu`.
+            
+            See `/charly-image:image` "user_policy" and `/charly-build:build` "base_user" for the full decision table.
+            
+            ## Security posture
+            
+            | Field | Value | Source |
+            |---|---|---|
+            | `cap_add` | **(empty)** | — |
+            | `security_opt` | `[unmask=/proc/*]` | `/charly-distros:container-nesting` |
+            | `devices` | `[/dev/fuse, /dev/net/tun]` | `/charly-distros:container-nesting` |
+            | `privileged` | `false` | — |
+            | Network | bridge | defaults |
+            | UID / user | `1000 / user` | create mode |
+            | sudo | passwordless via `/etc/sudoers.d/charly-user` (discovered via `getent passwd 1000`) | `/charly-coder:sshd` |
+            
+            ## Debian-specific layer quirks
+            
+            - **bat → batcat symlink** (`/charly-coder:dev-tools`). Debian and Ubuntu rename `bat` → `batcat` to avoid a namespace collision with a legacy `bacula` utility. The dev-tools candy ships a distro-tolerant cmd task that creates `/usr/bin/bat -> /usr/bin/batcat` when only batcat is present; no-op on Fedora/Arch.
+            - **dotnet-sdk-9.0 via Microsoft's `dotnet-install.sh`** (`/charly-coder:language-runtimes`). Debian 13 main ships no .NET; Microsoft's trixie apt repo has dotnet-sdk-9.0, but using the official cross-distro `dotnet-install.sh` channel-pin to `9.0` gives version parity with Ubuntu (whose Microsoft noble repo only ships 10.0). Installs to `/usr/share/dotnet` + symlinks `/usr/bin/dotnet`.
+            - **libvirt tests use `package:` not `file:`** (`/charly-infrastructure:virtualization`). Debian bundles libvirt drivers differently from Fedora's split packaging, so `file: /usr/sbin/virtqemud` would false-fail. The candy probes via `package: libvirt-daemon-driver-qemu` + `package_map:` per-distro package name.
+            - **sudoers via `getent`** (`/charly-coder:sshd`). Instead of hardcoding `user ALL=…`, the candy runs `getent passwd 1000 | cut -d: -f1` at build time to discover the actual uid-1000 account. On debian-coder that returns `user`; on ubuntu-coder it returns `ubuntu`. One cross-distro implementation, no special cases.
+            
+            ## Test results
+            
+            `charly check box ghcr.io/opencharly/debian-coder:latest` — **143 passed · 0 failed · 0 skipped**.
+            
+            Against a live running container, the same command adds live-service extension tests (sshd on 2222, supervisord, dbus, charly-mcp, the libvirt `qemu:///session` daemon — `libvirtd` on Debian, not the Fedora/Arch modular `virtqemud`), mirroring fedora-coder's +18 deploy-scope additions.
+            
+            ## Verification recipe
+            
+            ```bash
+            # 1. Validate
+            charly -C box/debian box validate
+            
+            # 2. Build dependencies auto-resolve (debian → debian-builder → debian-coder)
+            charly -C box/debian box build debian-coder
+            
+            # 3. Disposable-container tests
+            charly check box ghcr.io/opencharly/debian-coder:latest
+            
+            # 4. Deploy + live tests
+            charly config debian-coder
+            charly start debian-coder
+            charly check box ghcr.io/opencharly/debian-coder:latest
+            
+            # 5. Clean up
+            charly stop debian-coder
+            ```
+            
+            ## Ports
+            
+            | Port | Service | Bound by |
+            |---|---|---|
+            | 2222 | sshd-wrapper (SSH access as `user` with sudo) | `/charly-coder:sshd` |
+            | 18765 | charly-mcp (entire `charly` CLI as MCP tools, Streamable HTTP) | `/charly-coder:charly-mcp` |
+            
+            Conflicts with the other three coder-family boxes on the same ports — use `-i <instance>` or `-p <remap>` to run alongside.
+            
+            ## Image size
+            
+            ~10.4 GB uncompressed. Comparable to fedora-coder (~14 GB); smaller due to tighter Debian package naming (no split `-devel` packages, sparser optional dependencies pulled by default).
+            
+            ## Cross-distro siblings
+            
+            The coder-family boxes share the identical `check:` block + a large set of identical candies; they diverge only in per-candy package-format sections.
+            
+            - `/charly-coder:fedora-coder` — RPM (Fedora 43 via fedora-nonfree).
+            - `/charly-coder:arch-coder` — pacman + optional AUR.
+            - `/charly-coder:ubuntu-coder` — deb on Ubuntu 24.04; **adopt mode** (`user:ubuntu`).
+            - `/charly-coder:debian-coder` — this box; create mode (`user:user`).
+            
+            ## Related boxes
+            
+            - `/charly-distros:debian` — parent base.
+            - `/charly-distros:debian-builder` — multi-stage builder for pixi/npm/cargo.
+            
+            ## Related layers (Debian-specific content)
+            
+            - `/charly-coder:sshd` — cross-distro sudoers via `getent passwd 1000`.
+            - `/charly-coder:dev-tools` — bat → batcat symlink task.
+            - `/charly-coder:language-runtimes` — Microsoft `dotnet-install.sh` cross-distro pattern.
+            - `/charly-infrastructure:virtualization` — `package:` + `package_map:` pattern for libvirt.
+            - `/charly-coder:build-toolchain` — Debian `-dev` package equivalents of Fedora's `-devel`.
+            - `/charly-coder:gh`, `/charly-coder:docker-ce`, `/charly-coder:kubernetes-layer`, `/charly-distros:container-nesting` — each adds an upstream apt repo (with GPG key) for packages not in Debian main.
+            
+            ## Related commands
+            
+            - `/charly-core:shell`, `/charly-core:charly-config`, `/charly-core:start`, `/charly-core:stop`, `/charly-check:check`
+            - `/charly-image:image` — `user_policy:` field reference
+            - `/charly-build:build` — `base_user:` declaration (absent for Debian)
+            - `/charly-image:layer` — authoring reference (covers `exclude_distros:`, tag-section `repos:`, Microsoft dotnet-install pattern)
+            
+            ## When to use this skill
+            
+            **MUST be invoked** when the task involves:
+            
+            - Building, deploying, or troubleshooting `debian-coder`.
+            - Comparing cross-distro parity, especially between `debian-coder` and `ubuntu-coder` (the base images differ in their pre-existing user account).
+            - Understanding why Debian needs the `dotnet-install.sh` shell task (vs Fedora's native `dotnet-sdk` rpm).
+            - Adding new deb: sections to candies that are currently Fedora/Arch-only.
+
+debian-debootstrap-builder-skill:
+    skill:
+        name: debian-debootstrap-builder
+        family: distros
+        owner: debian-debootstrap-builder
+        description: |-
+            Privileged debootstrap builder image (base: debian:13) — ships the
+            debootstrap toolchain used to bootstrap a Debian rootfs from scratch for
+            debian-debootstrap and the debian-debootstrap VM. Lives in the
+            opencharly/distro-debian submodule (box/debian).
+            MUST be invoked before building or troubleshooting debian-debootstrap-builder.
+        content: |
+            # debian-debootstrap-builder
+            
+            Privileged builder image that ships the **debootstrap** toolchain (the
+            `debootstrap-builder` candy). It is the `from: builder:debootstrap` /
+            `bootstrap_builder_image:` target for `/charly-distros:debian-debootstrap` and the
+            `/charly-vm:debian-debootstrap-vm` bootstrap VM.
+            
+            > **Lives in `opencharly/distro-debian`** (git submodule at `box/debian`). Build:
+            > `charly -C box/debian box build debian-debootstrap-builder`.
+            
+            ## Box Properties
+            
+            | Property | Value |
+            |----------|-------|
+            | Base | `debian:13` |
+            | Distro | debian:13, debian |
+            | Build | deb |
+            | Layer | `debootstrap-builder` (pulled by github reference from the main repo) |
+            | Home repo | opencharly/distro-debian (`box/debian`) |
+            
+            The `debootstrap-builder` candy (debootstrap + arch-install-scripts equivalents,
+            grub, parted) **stays in the main repo** and is shared with
+            `/charly-distros:ubuntu-debootstrap-builder` — both pull it by github reference. The
+            `debian` distro config (debootstrap suite/mirror/base packages, bootloader
+            template) is part of the embedded `distro:` vocabulary, loaded automatically by
+            the unified loader.
+            
+            ## Cross-References
+            
+            - `/charly-distros:debian` — the Docker-Hub-equivalent base (`base: debian:13`)
+            - `/charly-distros:debian-debootstrap` — the bootstrap-from-scratch rootfs it builds
+            - `/charly-vm:debian-debootstrap-vm` — the VM built via the same debootstrap path
+            - `/charly-distros:ubuntu-debootstrap-builder` — the Ubuntu sibling (also `base: debian:13`)
+            
+            ## When to Use This Skill
+            
+            **MUST be invoked** before building or debugging the Debian debootstrap builder.
+            Invoke BEFORE reading source code or launching Explore agents.
+
+debian-debootstrap-skill:
+    skill:
+        name: debian-debootstrap
+        family: distros
+        owner: debian-debootstrap
+        description: |-
+            Bootstrap-from-scratch Debian rootfs via debootstrap inside a privileged
+            builder (from: builder:debootstrap, bootstrap_builder_image:
+            debian-debootstrap-builder). Retained for offline/air-gapped builds and as a
+            worked example of the from: builder:debootstrap pattern. Lives in the
+            opencharly/distro-debian submodule (box/debian).
+            MUST be invoked before building or troubleshooting debian-debootstrap.
+        triggers:
+            - "Debian images / `debian*` / `box/debian` submodule"
+        content: |
+            # debian-debootstrap
+            
+            Bootstrap-from-scratch Debian root filesystem, built via `debootstrap` inside
+            the privileged `/charly-distros:debian-debootstrap-builder` container
+            (`from: builder:debootstrap`, `bootstrap_builder_image: debian-debootstrap-builder`).
+            
+            > **Lives in `opencharly/distro-debian`** (git submodule at `box/debian`). Build:
+            > `charly -C box/debian box build debian-debootstrap`.
+            
+            ## When to use it (and when not)
+            
+            The canonical Debian base (`/charly-distros:debian`) pulls the upstream-published
+            `debian:13` OCI image from Docker Hub — that is the recommended, faster path
+            (no privileged build). This debootstrap variant exists for **offline /
+            air-gapped** builds and as a worked example of the `from: builder:debootstrap` +
+            `bootstrap_builder_image:` pattern (the deb-family counterpart of
+            `/charly-distros:arch` / `/charly-distros:cachyos-pacstrap`).
+            
+            ## Box Properties
+            
+            | Property | Value |
+            |----------|-------|
+            | From | builder:debootstrap |
+            | bootstrap_builder_image | debian-debootstrap-builder |
+            | Distro | debian:13, debian |
+            | Build | deb |
+            | Home repo | opencharly/distro-debian (`box/debian`) |
+            
+            The `debian` distro config (debootstrap suite `trixie`, mirror
+            `http://deb.debian.org/debian`, base packages, bootloader template) lives in the
+            embedded build vocabulary (`charly/charly.yml`, baked into the `charly` binary)
+            and is resolved by name from the submodule's `distro: debian` reference.
+            
+            ## Cross-References
+            
+            - `/charly-distros:debian` — the recommended Docker-Hub base
+            - `/charly-distros:debian-debootstrap-builder` — the privileged builder it uses
+            - `/charly-vm:debian-debootstrap-vm` — the VM built via the same debootstrap path
+            
+            ## When to Use This Skill
+            
+            **MUST be invoked** before building or debugging the Debian debootstrap rootfs.
+            Invoke BEFORE reading source code or launching Explore agents.
+
+debian-skill:
+    skill:
+        name: debian
+        family: distros
+        owner: debian
+        description: |-
+            Base Debian 13 trixie image. Root of the box hierarchy for Debian builds
+            that run as uid 1000 `user` (create mode — Debian 13 ships no pre-existing
+            uid-1000 account). Owned by the opencharly/distro-debian submodule (box/debian);
+            consumed by no main-repo box.
+            MUST be invoked before building, deploying, configuring, or troubleshooting
+            any Debian-based box.
+        triggers:
+            - "Debian images / `debian*` / `box/debian` submodule"
+        content: |
+            # debian
+            
+            Base Debian 13 (trixie) image. Root of the Debian box hierarchy.
+            
+            The Debian family lives in the **`opencharly/distro-debian`** repo (git submodule at
+            **`box/debian`**). The `debian` base is **owned there** (in that repo's
+            `charly.yml`) and composes the main repo's candies by git reference; the
+            `debian` distro config, the `deb` format, and the `debootstrap` builder
+            template come from charly's embedded build vocabulary. Build it from the submodule:
+            `charly -C box/debian box build debian` (or `charly --repo opencharly/distro-debian box build debian`).
+            Ubuntu — the deb-family sibling — lives in its own **`opencharly/distro-ubuntu`** repo
+            (see `/charly-distros:ubuntu`). Nothing in main consumes any Debian box, so there
+            is **no main ↔ debian coupling**.
+            
+            ## Box Properties
+            
+            | Property | Value |
+            |----------|-------|
+            | Base | `debian:13` |
+            | Pkg | `deb` |
+            | Distro tags | `["debian:13", "debian"]` |
+            | Layers | (none — base image only) |
+            | Platforms | `linux/amd64` |
+            | User | `user` / uid 1000 (**create mode**) |
+            | Home | `/home/user` |
+            | Registry | `ghcr.io/opencharly` |
+            
+            ## User model — create, not adopt
+            
+            The embedded `distro.debian` vocabulary **does not** declare a `base_user:` block, because the upstream `debian:13` base image ships no pre-existing uid-1000 account. `user_policy: auto` (the default for any downstream image) falls through to create mode — the generator emits an idempotent user creation (`useradd` where shadow-utils is present, busybox `adduser` otherwise) during bootstrap.
+            
+            This is the intentional asymmetry vs `/charly-distros:ubuntu`, which DOES ship `ubuntu:ubuntu` at uid 1000 and declares `base_user:` to adopt that identity. See `/charly-image:image` "user_policy" and `/charly-build:build` "base_user" for the full decision table.
+            
+            If you build a downstream image on `debian:13-cloud` (or a similar variant that ships a pre-existing `debian` account), override this by adding a `base_user:` block in your project's `build.yml` override.
+            
+            ## Bootstrap
+            
+            ```dockerfile
+            FROM debian:13
+            RUN --mount=type=cache,dst=/var/cache/apt,sharing=locked
+                --mount=type=cache,dst=/var/lib/apt,sharing=locked
+                apt-get update && apt-get install -y --no-install-recommends curl ca-certificates gnupg && \
+                ... install go-task binary ...
+            RUN if ! getent passwd 1000 >/dev/null 2>&1; then
+                  LOGIN_SHELL=/bin/sh; [ -x /bin/bash ] && LOGIN_SHELL=/bin/bash;
+                  if command -v useradd >/dev/null 2>&1; then
+                    (getent group 1000 >/dev/null 2>&1 || groupadd -g 1000 user) &&
+                    useradd -m -u 1000 -g 1000 -s "$LOGIN_SHELL" user;
+                  else
+                    (getent group 1000 >/dev/null 2>&1 || addgroup -g 1000 user) &&
+                    adduser -D -h /home/user -u 1000 -G user -s "$LOGIN_SHELL" user;
+                  fi;
+                fi
+            WORKDIR /home/user
+            USER 1000
+            ```
+            
+            `gnupg` is in the bootstrap package set because downstream candies with `deb.repos[].key` (GitHub CLI, Docker, Kubernetes, Tailscale, Microsoft) call `gpg --dearmor` to convert ASCII-armored keys into `/etc/apt/keyrings/<name>.gpg`. Without `gnupg` the apt-repo stages fail with `gpg: not found`.
+            
+            ## Downstream / sibling entries (all in opencharly/distro-debian)
+            
+            - `/charly-distros:debian-builder` — pixi/npm/cargo multi-stage builder on this base.
+            - `/charly-coder:debian-coder` — kitchen-sink dev box on this base.
+            - `/charly-distros:debian-debootstrap-builder` — privileged debootstrap builder (`base: debian:13`).
+            - `/charly-distros:debian-debootstrap` — bootstrap-from-scratch rootfs (`from: builder:debootstrap`).
+            - `/charly-vm:debian-debootstrap-vm` — the `debian-debootstrap` bootstrap VM + `check-debian-debootstrap-vm` bed.
+            
+            ## Verification
+            
+            ```bash
+            charly -C box/debian box build debian
+            charly shell debian                       # drops into /home/user as uid 1000
+            id                                    # uid=1000(user) gid=1000(user)
+            charly -C box/debian box validate     # embedded build vocab + remote layer refs resolve
+            ```
+            
+            ## Related boxes
+            
+            - `/charly-distros:ubuntu` — deb-family sibling base in the separate `opencharly/distro-ubuntu` submodule; ships `base_user:` + adopts ubuntu:ubuntu.
+            - `/charly-distros:debian-builder` — multi-stage builder on top of this box.
+            - `/charly-coder:debian-coder` — kitchen-sink dev box on this base.
+            - `/charly-distros:fedora` — RPM-family counterpart.
+            - `/charly-distros:arch` — pacman-family counterpart (separate `opencharly/distro-arch` submodule).
+            
+            ## Related commands
+            
+            - `/charly-build:build` — `base_user:` declaration format + bootstrap packages.
+            - `/charly-image:image` — `user_policy:` reconciliation.
+            - `/charly-build:generate` — writeBootstrap emission.
+            
+            ## When to use this skill
+            
+            **MUST be invoked** when:
+            
+            - Building or troubleshooting the `debian` base image.
+            - Adding any deb-family box that inherits from `debian` (not `ubuntu`).
+            - Debugging uid-1000 user issues on a Debian-based box — the answer is almost always "create mode fires, user named `user`."
+
