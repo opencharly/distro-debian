@@ -327,7 +327,7 @@ debian-coder-skill:
                 - '@github.com/opencharly/layer-tmux'
             
                 # Language runtimes
-                - language-runtimes           # Go + PHP + .NET 9 (via Microsoft dotnet-install.sh)
+                - '@github.com/opencharly/layer-language-runtimes:v2026.243.0409'
                 - '@github.com/opencharly/layer-golang'
                 - '@github.com/opencharly/layer-nodejs'  # Debian's packaged Node
                 - '@github.com/opencharly/layer-rust:v2026.239.1627'
@@ -336,7 +336,7 @@ debian-coder-skill:
             
                 # Build + developer tooling
                 - '@github.com/opencharly/layer-build-toolchain:v2026.239.1636'
-                - dev-tools                   # ripgrep, bat→batcat symlink, fd-find, neovim, …
+                - '@github.com/opencharly/layer-dev-tools:v2026.239.1624'
                 - '@github.com/opencharly/layer-pre-commit:v2026.243.0409'
                 - '@github.com/opencharly/layer-direnv:v2026.242.1147'
                 - '@github.com/opencharly/layer-gh:v2026.239.1624'
