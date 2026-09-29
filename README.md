@@ -1,41 +1,33 @@
-# opencharly/distro-debian
+# distro-debian
 
-The **Debian image family** for [OpenCharly](https://github.com/opencharly/charly),
-split into its own repository and mounted as a git submodule at `box/debian`
-of the main repo.
+The **Debian image family** for [OpenCharly](https://github.com/opencharly/charly) —
+the root of the deb-based hierarchy.
+
+This repo is mounted as a git submodule at `box/debian` of the main repo. It
+contains **no candies of its own** and carries no build-config file: every candy
+is an `@github.com/opencharly/<layer-*|pod-*|plugin-*>[:subdir]:<tag>` ref into
+its standalone candy repo, and the distro/builder/init build vocabulary is
+embedded in the `charly` binary — `import:` is empty (`import: []`). The Debian
+bases root at the upstream `docker.io/debian:13` image directly.
 
 ## What's here
 
 | Kind | Entries |
 |---|---|
-| `image:` | `debian` (base), `debian-builder`, `debian-coder`, `debian-debootstrap`, `debian-debootstrap-builder` |
-| `vm:` | `debian-debootstrap` (bootstrap-from-scratch via debootstrap) |
-| `deploy:` | `check-debian-debootstrap-vm` (disposable bootstrap-VM bed) |
+| Base / builder | `debian` (base), `debian-builder` (pixi/npm/cargo multi-stage builder) |
+| Images | `debian-coder` (kitchen-sink dev box), `debian-debootstrap-builder` (privileged), `debian-debootstrap` (`from: builder:debootstrap`) |
+| VM | `debian-debootstrap` (bootstrap-from-scratch via `debootstrap`) |
+| Check bed | `check-debian-debootstrap-vm` (disposable bootstrap-VM bed) |
 
-## Composition by reference — nothing is vendored
-
-This repo contains **no candies of its own** and carries no build-config file.
-Everything is pulled from `github.com/opencharly/charly` by **github reference**,
-and the shared build vocabulary is embedded in the `charly` binary:
-
-- every candy in `charly.yml` is an `@github.com/opencharly/<layer-*|pod-*|plugin-*>[:subdir]:<tag>` ref;
-- the distro/builder/init build vocabulary (the `debian` distro definition, the
-  `deb` format template, and the `debootstrap` builder template) is **embedded in
-  the `charly` binary** (`charly/charly.yml`) — `import:` is empty (`import: []`).
-
-The Debian bases root at the upstream docker.io `debian:13` image directly, so
-this repo needs **no namespace import** (unlike `opencharly/distro-cachyos`, which
-imports `opencharly/distro-arch` under the `arch` namespace). All references pin to
-explicit CalVer tags, so a build is reproducible. There is exactly one
-definition of every candy — no duplication.
+The `debian` base runs as uid-1000 `user` in **create mode** — Debian 13 ships
+no pre-existing uid-1000 account.
 
 ## No coupling with main
 
 Nothing in the main `opencharly` repo consumes any Debian image (no
-`base: debian` image stays in main), so there is **no main ↔ debian coupling**:
-the only edge is `debian → main` (this repo pulls candies via `@github` refs). Main
-pulls nothing back. The image DAG is acyclic
-(`debian-coder → debian → docker.io/debian:13`;
+`base: debian` image stays in main), so there is no main ↔ debian coupling: the
+only edge is `debian → main` (this repo pulls candies via `@github` refs). The
+image DAG is acyclic (`debian-coder → debian → docker.io/debian:13`;
 `debian-debootstrap → debian-debootstrap-builder → docker.io/debian:13`).
 
 ## Build
@@ -57,18 +49,38 @@ The first build resolves the upstream github references into
 
 ## debootstrap-from-scratch (`debian-debootstrap` / `check-debian-debootstrap-vm`)
 
-`debian-debootstrap` builds a Debian rootfs from scratch via `debootstrap`
-inside the privileged `debian-debootstrap-builder` container (`from:
+`debian-debootstrap` builds a Debian rootfs from scratch via `debootstrap` inside
+the privileged `debian-debootstrap-builder` container (`from:
 builder:debootstrap`). `check-debian-debootstrap-vm` boots that rootfs under
-libvirt/QEMU and carries `disposable: true`, so `charly -C box/debian check run
-check-debian-debootstrap-vm` rebuilds it unattended.
+libvirt/QEMU and carries `disposable: true`, so it rebuilds unattended:
+
+```bash
+charly -C box/debian check run check-debian-debootstrap-vm
+```
 
 ## Requirements
 
 A build of any image here fetches from the upstream repo, so it needs network
 access and a `charly` recent enough to understand the config's schema version
-(`charly` hard-fails with a "newer than this charly supports" message if the config
-schema is newer than the binary supports).
+(`charly` hard-fails with a "newer than this charly supports" message if the
+config schema is newer than the binary supports).
 
----
-*Assisted-by: Claude*
+## Layout
+
+- `charly.yml` — the root manifest: the `discover:` tree, the inline
+  `check-debian-debootstrap-vm` bed, and the embedded `skill:` entities
+  (`debian`, `debian-builder`, `debian-coder`, `debian-debootstrap`,
+  `debian-debootstrap-builder`).
+- `box/<name>/charly.yml` — one manifest per image / builder / VM box.
+- `.github/workflows/tag-on-merge.yml` — CalVer tag + `CHANGELOG/` on merge.
+- `README.md` — this user overview.
+
+## Related
+
+- Owning skills: `/charly-distros:debian`, `/charly-distros:debian-builder`,
+  `/charly-distros:debian-debootstrap`,
+  `/charly-distros:debian-debootstrap-builder`, `/charly-coder:debian-coder`
+- Bootstrap VM: `/charly-vm:debian-debootstrap-vm`
+- Sibling: `/charly-distros:ubuntu` (deb-family, adopt mode)
+- [`opencharly/charly`](https://github.com/opencharly/charly) — the charly CLI and image builder
+- [`opencharly/opencharly`](https://github.com/opencharly/opencharly) — the umbrella
