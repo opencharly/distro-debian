@@ -52,10 +52,11 @@ The first build resolves the upstream github references into
 `debian-debootstrap` builds a Debian rootfs from scratch via `debootstrap` inside
 the privileged `debian-debootstrap-builder` container (`from:
 builder:debootstrap`). `check-debian-debootstrap-vm` boots that rootfs under
-libvirt/QEMU and carries `disposable: true`, so it rebuilds unattended:
+libvirt/QEMU and carries `disposable: true`, so it rebuilds unattended. From
+this repo's root:
 
 ```bash
-charly -C box/debian check run check-debian-debootstrap-vm
+charly check run check-debian-debootstrap-vm
 ```
 
 ## Requirements
@@ -67,13 +68,11 @@ config schema is newer than the binary supports).
 
 ## Layout
 
-- `charly.yml` — the root manifest: the `discover:` tree, the inline
-  `check-debian-debootstrap-vm` bed, and the embedded `skill:` entities
-  (`debian`, `debian-builder`, `debian-coder`, `debian-debootstrap`,
-  `debian-debootstrap-builder`).
-- `box/<name>/charly.yml` — one manifest per image / builder / VM box.
-- `.github/workflows/tag-on-merge.yml` — CalVer tag + `CHANGELOG/` on merge.
-- `README.md` — this user overview.
+The repo root carries `charly.yml` — the manifest holding the `discover:` tree,
+the inline `check-debian-debootstrap-vm` bed, and the embedded `skill:` entities.
+Each image, builder and VM box is a `box/<name>/charly.yml`, and
+`.github/workflows/tag-on-merge.yml` mints the CalVer tag and `CHANGELOG/` entry
+on merge. See `AGENTS.md` for the canonical-file inventory.
 
 ## Related
 
