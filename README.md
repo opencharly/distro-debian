@@ -68,11 +68,9 @@ config schema is newer than the binary supports).
 
 ## Layout
 
-The repo root carries `charly.yml` — the manifest holding the `discover:` tree,
-the inline `check-debian-debootstrap-vm` bed, and the embedded `skill:` entities.
-Each image, builder and VM box is a `box/<name>/charly.yml`, and
-`.github/workflows/tag-on-merge.yml` mints the CalVer tag and `CHANGELOG/` entry
-on merge. See `AGENTS.md` for the canonical-file inventory.
+The canonical-file inventory (the root `charly.yml`, the per-box
+`box/<name>/charly.yml` manifests, and the workflow) lives in
+[`AGENTS.md`](AGENTS.md).
 
 ## Related
 
