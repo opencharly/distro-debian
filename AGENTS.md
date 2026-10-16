@@ -8,9 +8,12 @@ embedded in the `charly` binary (`charly/charly.yml`).
 Canonical files:
 
 - `charly.yml` — the root manifest: the `discover:` tree, the inline
-  `check-debian-debootstrap-vm` bed, and the embedded `skill:` entities
+  `check-debian-debootstrap-vm` bed, and the `skill:` routing nodes
   (`debian`, `debian-builder`, `debian-coder`, `debian-debootstrap`,
-  `debian-debootstrap-builder`).
+  `debian-debootstrap-builder`) — each carrying `name`/`family`/`owner`/`triggers`
+  and no body.
+- `.agents/skills/<name>/SKILL.md` — the five skill BODIES, one directory per
+  node's `name:`. The files are the source of record for the prose.
 - `box/<name>/charly.yml` — one manifest per image / builder / VM box.
 - `.github/workflows/tag-on-merge.yml` — CalVer tag + `CHANGELOG/` on merge.
 - `README.md` — user overview only; never agent guidance.
@@ -38,9 +41,10 @@ Canonical files:
 
 ## Modify this repo
 
-- Edit the box manifest under `box/<name>/charly.yml` and any embedded `skill:`
-  entity together — the skill is the projected usage source, so a change not
-  mirrored in the skill leaves the corpus stale.
+- Edit a skill's `SKILL.md` under `.agents/skills/<name>/` for the prose, or its
+  node in `charly.yml` for the routing — never the generated `SKILL.md` in the
+  marketplace corpus; a corpus regeneration (`charly marketplace generate`)
+  projects both.
 - This repo carries no candies of its own; a new layer belongs in its own
   `layer-*` repo and is referenced here by a pinned `@github` ref.
 - New behaviour claims belong in a `plan:` as an observable `check:` step, and
