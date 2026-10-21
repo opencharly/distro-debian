@@ -19,9 +19,10 @@ Canonical files:
   read and the node never reaches the `ai.opencharly.skill` label
   (opencharly/sdk#434). The candy is composed into every image that carries one
   of those skills.
-- `candy/debian-skills/.agents/skills/<name>/SKILL.md` — the five skill BODIES,
-  one directory per node's `name:`. The files are the source of record for the
-  prose.
+- `.agents/skills/<name>/SKILL.md` — the five skill BODIES, one directory per
+  node's `name:`, at THIS REPO'S ROOT — the one base both readers resolve after
+  opencharly/sdk#445 (`deploykit.candyRepoRoot`). The files are the source of
+  record for the prose.
 - `box/<name>/charly.yml` — one manifest per image / builder / VM box.
 - `.github/workflows/tag-on-merge.yml` — CalVer tag + `CHANGELOG/` on merge.
 - `README.md` — user overview only; never agent guidance.
@@ -49,8 +50,8 @@ Canonical files:
 
 ## Modify this repo
 
-- Edit a skill's body under its OWNING candy's `.agents/skills/<name>/` and its
-  routing node in that same candy's `charly.yml` together — never the generated
+- Edit a skill's body at the repo root, `.agents/skills/<name>/`, and its routing
+  node in `candy/debian-skills/charly.yml` together — never the generated
   `SKILL.md` in the marketplace corpus; a corpus regeneration
   (`charly marketplace generate`) projects both.
 - This repo carries exactly ONE candy of its own — `debian-skills`, the

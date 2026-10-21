@@ -5,12 +5,17 @@
 #  loader folds it into the image set and never the layer set, so an image-owned skill's prose can
 #  never be read AND the node is silently absent from the `ai.opencharly.skill` OCI label.
 #  The 5 `skill:` nodes below were all owned by an image; this candy owns them instead, and their
-#  bodies live beside this manifest under `.agents/skills/<name>/SKILL.md` (the Agent-Skills
-#  standard tree) — the one place the marketplace/docs generators and the label projection read.
+#  bodies live at THIS REPO'S ROOT, `.agents/skills/<name>/SKILL.md` (the Agent-Skills standard
+#  tree) — the one base the marketplace/docs generators and the label projection read after
+#  opencharly/sdk#445 (`deploykit.candyRepoRoot`), NOT this carrier's own directory, which is
+#  where the sdk#434 re-home had put them and the sdk#445 ruling replaced.
 #
-#  THE CANDY CARRIES THE PROSE INTO THE IMAGE: composed into every image that carries one of these
-#  skills, it installs the tree at the uid-1000 account's `~/.agents/skills` — the location a
-#  harness running inside the image reads — and its ADE `check:` proves the install landed.
+#  THE INSTALL STEP BELOW IS PRE-EXISTING BROKEN AND IS TRACKED, NOT HIDDEN: a carrier candy's
+#  `copy: .agents/skills` renders no Containerfile directive at all, identically on the moved and
+#  the unmoved tree (opencharly/sdk#444), and the source it names is the PRE-MOVE tree, so no
+#  reader resolves it any more. It is left as-is because the fix is a DECISION about `copy:`'s
+#  base — a root-relative source form the emitter understands — and a `../` re-spelling of this
+#  path would be the workaround the rulebook forbids. sdk#444 owns it.
 debian-skills:
     candy:
         description: |
