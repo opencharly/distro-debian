@@ -2,7 +2,7 @@
 #  opencharly repo (2026-05). Mounted as a git submodule at box/debian.
 #
 #  SINGLE-FILE config (2026-05 import-namespace cutover): every local entity
-#  (the debian base + debootstrap family, the debian-coder kitchen-sink image,
+#  (the debian base + debootstrap family, the debian-builder image,
 #  the debian bootstrap VM, the disposable check bed) is inlined here. This repo
 #  VENDORS NOTHING — every layer is an `@github.com/...` ref into main's shared
 #  candy library, and the shared build-config (distro/builder/init vocabulary) is
@@ -95,41 +95,6 @@ check-debian-debootstrap-vm:
               context:
                 - runtime
               command: grep -h 'pkgs[.]tailscale[.]com/stable/debian trixie' /etc/apt/sources.list.d/tailscale.list
-# Disposable R10 pod bed for the debian-coder developer image — closes the
-# pod×debian cross-cell the submodule previously lacked (it shipped only the
-# debootstrap VM bed above), mirroring box/fedora's check-fedora-coder-pod on
-# the deb substrate. No `port:` — every inherited container port (sshd 2222,
-# charly-mcp 18765) auto-allocates a free 127.0.0.1 host port at deploy,
-# conflict-free across concurrent beds.
-check-debian-coder-pod:
-    pod:
-        image: debian-coder
-        disposable: true
-        lifecycle: dev
-        description: R10 bed for the debian-coder image — proves the Debian developer pod (sshd + language runtimes + AI CLIs on the Debian 13 base) builds and runs as one composed pod. Builds box:debian-coder, deploys it, and runs the composed candies' baked file/package/service/command/addr checks plus the bed's own sshd-service, language-runtime-binary, and charly status --json (status-shows-pod) probes.
-        plan:
-            - check: the supervised sshd service is running in the composed developer pod
-              id: sshd-service-running
-              context:
-                - runtime
-              service:
-                service: sshd
-                running: true
-            - check: the Go language-runtime binary is baked into the developer pod
-              id: golang-binary-present
-              file:
-                file: /usr/bin/go
-                exists: true
-            - check: command=charly status --json
-              id: status-shows-pod
-              stdout:
-                - contains: '"kind": "pod"'
-                - contains: check-debian-coder-pod
-              context:
-                - runtime
-              command:
-                command: charly status --json
-                in_container: false
 debian-debootstrap:
     vm:
         #  `source.kind: bootstrap` builds a Debian rootfs from scratch via

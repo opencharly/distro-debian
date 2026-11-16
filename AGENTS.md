@@ -10,8 +10,8 @@ Canonical files:
 - `charly.yml` — the root manifest: the `discover:` tree and the inline
   `check-debian-debootstrap-vm` bed.
 - `candy/debian-skills/charly.yml` — the `debian-skills` bundle candy PLUS the
-  five `skill:` routing nodes whose only other owner was an image (`debian`,
-  `debian-builder`, `debian-coder`, `debian-debootstrap`,
+  four `skill:` routing nodes whose only other owner was an image (`debian`,
+  `debian-builder`, `debian-debootstrap`,
   `debian-debootstrap-builder`), each carrying
   `name`/`family`/`owner`/`triggers` — with `owner: debian-skills`. A skill's
   `owner:` must be a CANDY: an image is a `candy:` node carrying
@@ -19,7 +19,7 @@ Canonical files:
   read and the node never reaches the `ai.opencharly.skill` label
   (opencharly/sdk#434). The candy is composed into every image that carries one
   of those skills.
-- `.agents/skills/<name>/SKILL.md` — the five skill BODIES, one directory per
+- `.agents/skills/<name>/SKILL.md` — the four skill BODIES, one directory per
   node's `name:`, at THIS REPO'S ROOT — the one base both readers resolve after
   opencharly/sdk#445 (`deploykit.candyRepoRoot`). The files are the source of
   record for the prose.
@@ -33,7 +33,6 @@ Canonical files:
 - `/charly-distros:debian-builder` — the multi-stage builder image.
 - `/charly-distros:debian-debootstrap`,
   `/charly-distros:debian-debootstrap-builder` — the bootstrap path.
-- `/charly-coder:debian-coder` — the kitchen-sink dev image.
 - `/charly-vm:debian-debootstrap-vm` — the bootstrap VM + its check bed.
 - `/charly-image:image` + `/charly-image:layer` — composition and candy
   authoring (`charly.yml` schema, `plan:` step verbs, service declarations).
