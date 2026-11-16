@@ -15,7 +15,7 @@ bases root at the upstream `docker.io/debian:13` image directly.
 | Kind | Entries |
 |---|---|
 | Base / builder | `debian` (base), `debian-builder` (pixi/npm/cargo multi-stage builder) |
-| Images | `debian-coder` (kitchen-sink dev box), `debian-debootstrap-builder` (privileged), `debian-debootstrap` (`from: builder:debootstrap`) |
+| Images | `debian-debootstrap-builder` (privileged), `debian-debootstrap` (`from: builder:debootstrap`) |
 | VM | `debian-debootstrap` (bootstrap-from-scratch via `debootstrap`) |
 | Check bed | `check-debian-debootstrap-vm` (disposable bootstrap-VM bed) |
 
@@ -27,7 +27,7 @@ no pre-existing uid-1000 account.
 Nothing in the main `opencharly` repo consumes any Debian image (no
 `base: debian` image stays in main), so there is no main ↔ debian coupling: the
 only edge is `debian → main` (this repo pulls candies via `@github` refs). The
-image DAG is acyclic (`debian-coder → debian → docker.io/debian:13`;
+image DAG is acyclic (`debian-builder → debian → docker.io/debian:13`;
 `debian-debootstrap → debian-debootstrap-builder → docker.io/debian:13`).
 
 ## Build
@@ -76,7 +76,7 @@ The canonical-file inventory (the root `charly.yml`, the per-box
 
 - Owning skills: `/charly-distros:debian`, `/charly-distros:debian-builder`,
   `/charly-distros:debian-debootstrap`,
-  `/charly-distros:debian-debootstrap-builder`, `/charly-coder:debian-coder`
+  `/charly-distros:debian-debootstrap-builder`
 - Bootstrap VM: `/charly-vm:debian-debootstrap-vm`
 - Sibling: `/charly-distros:ubuntu` (deb-family, adopt mode)
 - [`opencharly/charly`](https://github.com/opencharly/charly) — the charly CLI and image builder

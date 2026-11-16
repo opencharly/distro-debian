@@ -2,7 +2,7 @@
 #  opencharly repo (2026-05). Mounted as a git submodule at box/debian.
 #
 #  SINGLE-FILE config (2026-05 import-namespace cutover): every local entity
-#  (the debian base + debootstrap family, the debian-coder kitchen-sink image,
+#  (the debian base + debootstrap family, the debian-builder image,
 #  the debian bootstrap VM, the disposable check bed) is inlined here. This repo
 #  VENDORS NOTHING — every layer is an `@github.com/...` ref into main's shared
 #  candy library, and the shared build-config (distro/builder/init vocabulary) is
